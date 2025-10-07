@@ -4,3 +4,4 @@
 - Go concurrency
 - Go Kafka
 - Go gRPC
+- Go gRPC with Streaming 
