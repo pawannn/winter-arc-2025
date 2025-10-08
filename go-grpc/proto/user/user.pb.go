@@ -90,15 +90,15 @@ const file_user_proto_rawDesc = "" +
 	"\x04User\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
-	"\x05email\x18\x03 \x01(\tR\x05email2V\n" +
-	"\vUserService\x12!\n" +
+	"\x05email\x18\x03 \x01(\tR\x05email2^\n" +
+	"\vUserService\x12%\n" +
 	"\aGetUser\x12\n" +
 	".user.User\x1a\n" +
-	".user.User\x12$\n" +
+	".user.User(\x010\x01\x12(\n" +
 	"\n" +
 	"CreateUser\x12\n" +
 	".user.User\x1a\n" +
-	".user.UserB\fZ\n" +
+	".user.User(\x010\x01B\fZ\n" +
 	"proto/userb\x06proto3"
 
 var (

@@ -11,6 +11,6 @@ message User {
 };
 
 service UserService {
-    rpc GetUser (User) returns (User);
-    rpc CreateUser (User) returns (User);
+    rpc GetUser (stream User) returns (stream User);
+    rpc CreateUser (stream User) returns (stream User);
 }

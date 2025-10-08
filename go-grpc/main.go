@@ -1,14 +1,15 @@
 package main
 
 import (
-	"context"
 	"fmt"
-	pb "gogrpc/proto/user"
-	"gogrpc/utils"
+	"io"
 	"log"
 	"net"
 	"os"
 
+	pb "gogrpc/proto/user"
+
+	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -19,38 +20,55 @@ type UserService struct {
 	usersList map[string]*pb.User
 }
 
-func (uS *UserService) GetUser(ctx context.Context, user *pb.User) (*pb.User, error) {
-	if user.Id == "" {
-		return nil, status.Error(codes.InvalidArgument, "Please provide a valid id")
+// GetUser — bidirectional streaming
+// Client sends user IDs, server streams back user details
+func (uS *UserService) GetUser(stream pb.UserService_GetUserServer) error {
+	for {
+		req, err := stream.Recv()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return status.Error(codes.Internal, err.Error())
+		}
+
+		log.Printf("Got request for user details with ID: %s", req.Id)
+
+		user, exist := uS.usersList[req.Id]
+		if !exist {
+			log.Printf("No user found for ID: %s", req.Id)
+			continue
+		}
+
+		if err := stream.Send(user); err != nil {
+			return status.Error(codes.Internal, err.Error())
+		}
 	}
-
-	if _, exist := uS.usersList[user.Id]; !exist {
-		return nil, status.Error(codes.NotFound, "No user found with the given userID")
-	}
-
-	userDetails := uS.usersList[user.Id]
-
-	return userDetails, nil
 }
 
-func (uS *UserService) CreateUser(ctx context.Context, user *pb.User) (*pb.User, error) {
-	if user.Id == "" {
-		return nil, status.Error(codes.InvalidArgument, "Please provide a valid id")
-	}
-	if !utils.ValidateName(user.Name) {
-		return nil, status.Error(codes.InvalidArgument, "Please provide a valid name")
-	}
-	if !utils.ValidateEmail(user.Email) {
-		return nil, status.Error(codes.InvalidArgument, "Please provide a valid email")
-	}
+// CreateUser — bidirectional streaming
+// Client sends new users, server streams back the created user with an ID
+func (uS *UserService) CreateUser(stream pb.UserService_CreateUserServer) error {
+	for {
+		req, err := stream.Recv()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return status.Error(codes.Internal, err.Error())
+		}
 
-	if _, exist := uS.usersList[user.Id]; exist {
-		return nil, status.Error(codes.AlreadyExists, "The User ID already exist for a user")
+		log.Printf("Received request to create user: %s (%s)", req.Name, req.Email)
+
+		userID := uuid.NewString()
+		req.Id = userID
+		uS.usersList[userID] = req
+
+		// Send back the created user immediately
+		if err := stream.Send(req); err != nil {
+			return status.Error(codes.Internal, err.Error())
+		}
 	}
-
-	uS.usersList[user.Id] = user
-
-	return user, nil
 }
 
 func main() {
@@ -62,14 +80,19 @@ func main() {
 	address := ":" + port
 	lis, err := net.Listen("tcp", address)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("failed to listen: %v", err)
+	}
+
+	userService := &UserService{
+		usersList: make(map[string]*pb.User),
 	}
 
 	grpcServer := grpc.NewServer()
-	pb.RegisterUserServiceServer(grpcServer, &UserService{})
+	pb.RegisterUserServiceServer(grpcServer, userService)
 
-	fmt.Println("Started listening on TCP::8080...")
+	fmt.Printf("✅ gRPC server started on port %s...\n", port)
+
 	if err := grpcServer.Serve(lis); err != nil {
-		log.Fatal(err)
+		log.Fatalf("failed to serve: %v", err)
 	}
 }
